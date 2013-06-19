@@ -12,7 +12,7 @@ LDAPLIBS      = @LDAPLIBS@
 INSTALL       = @INSTALL@
 STRIP         = @STRIP@
 LN            = ln -sf
-ROOTDIR       =
+ROOTDIR       = $(DESTDIR)
 SUPER_OWNER   = root
 BIN_OWNER     = bin
 BIN_GROUP     = bin
@@ -105,33 +105,42 @@ endif
 	-$(INSTALL) -m $(DEF_MAN_MODE) *.8 $(ROOTDIR)$(mandir)/man8
 
 quotaon: quotaon.o quotaon_xfs.o $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 quotacheck: quotacheck.o quotacheck_v1.o quotacheck_v2.o quotaops.o $(LIBOBJS)
-	$(CC) $(LDFLAGS) -o $@ $^ $(EXT2LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(EXT2LIBS) -ltirpc
 
 quota: quota.o quotaops.o $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 quotasync: quotasync.o $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 quot: quot.o $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 repquota: repquota.o $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 warnquota: warnquota.o $(LIBOBJS)
-	$(CC) $(LDFLAGS) -o $@ $^ $(LDAPLIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDAPLIBS) -ltirpc
 
 quotastats: quotastats.o common.o pot.o
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 xqmstats: xqmstats.o common.o pot.o
 
 edquota: edquota.o quotaops.o $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 setquota: setquota.o quotaops.o $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 convertquota: convertquota.o $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -ltirpc
 
 rpc.rquotad: rquota_server.o rquota_svc.o svc_socket.o $(LIBOBJS)
-	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS) -ltirpc
 
 ifneq ($(NETLINKLIBS),)
 quota_nld: quota_nld.o $(LIBOBJS)
