@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <ftw.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -76,6 +77,10 @@ static size_t free_mem = 0;
 
 static struct dquot *dquot_hash[MAXQUOTAS][DQUOTHASHSIZE];
 static struct dlinks *links_hash[MAXQUOTAS][DQUOTHASHSIZE];
+
+static int want_projects;	/* Check project from /etc/projects */
+static prid_t current_project;
+static int files_skipped, errors_found;
 
 /*
  * Ok check each memory allocation.
@@ -293,9 +298,10 @@ static inline void blit(const char *msg)
 
 static void usage(void)
 {
-	printf(_("Utility for checking and repairing quota files.\n%s [-gucbfinvdmMR] [-F <quota-format>] filesystem|-a\n\n\
+	printf(_("Utility for checking and repairing quota files.\n%s [-gujcbfinvdmMR] [-F <quota-format>] filesystem|-a\n\n\
 -u, --user                check user files\n\
 -g, --group               check group files\n\
+-j, --project             check project files\n\
 -c, --create-files        create new quota files\n\
 -b, --backup              create backups of old quota files\n\
 -f, --force               force check even if quotas are enabled\n\
@@ -338,7 +344,7 @@ static void parse_options(int argcnt, char **argstr)
 		{ NULL, 0, NULL, 0 }
 	};
 
-	while ((ret = getopt_long(argcnt, argstr, "VhbcvugidnfF:mMRa", long_opts, NULL)) != -1) {
+	while ((ret = getopt_long(argcnt, argstr, "VhbcvugjidnfF:mMRa", long_opts, NULL)) != -1) {
   	        switch (ret) {
 		  case 'b':
   		          flags |= FL_BACKUPS;
@@ -348,6 +354,9 @@ static void parse_options(int argcnt, char **argstr)
 			  break;
 		  case 'u':
 			  uwant = 1;
+			  break;
+		  case 'j':
+			  want_projects = 1;
 			  break;
 		  case 'd':
 			  flags |= FL_DEBUG;
@@ -394,7 +403,7 @@ static void parse_options(int argcnt, char **argstr)
 			usage();
 		}
 	}
-	if (!(uwant | gwant))
+	if (!(uwant | gwant | want_projects))
 		uwant = 1;
 	if ((argcnt == optind && !(flags & FL_ALL)) || (argcnt > optind && flags & FL_ALL)) {
 		fputs(_("Bad number of arguments.\n"), stderr);
@@ -999,6 +1008,91 @@ out:
 	return failed;
 }
 
+static int check_project(
+	const char		*path,
+	const struct stat	*stat,
+	int			flag,
+	struct FTW		*data)
+{
+	prid_t project;
+
+	if (flag == FTW_NS) {
+		errstr(_("Cannot stat file %s\n"), path);
+		return -1;
+	}
+	if (S_ISREG(stat->st_mode)) {
+		files_done++;
+	} else if (S_ISDIR(stat->st_mode)) {
+		dirs_done++;
+	} else {
+		files_skipped++;
+		debug(FL_DEBUG | FL_VERBOSE,
+		      _("Skipping special file %s\n"), path);
+		return 0;
+	}
+	if (fgetproject(path, &project)) {
+		errstr(_("Cannot get project for file %s\n"), path);
+		return -1;
+	}
+	if (project != current_project) {
+		errors_found++;
+		debug(FL_DEBUG | FL_VERBOSE,
+			_("File from different project: %s\n"), path);
+	}
+	return 0;
+}
+
+static int check_projects(struct mount_entry *mnt)
+{
+	int mnt_len = strlen(mnt->me_dir);
+	struct fs_project_path *entry;
+	char path[PATH_MAX];
+	int path_len;
+	int failed = 0;
+
+	setprpathent();
+	while ((entry = getprpathent())) {
+		if (!realpath(entry->pp_pathname, path)) {
+			errstr(_("Cannot resolve path %s: %s\n"),
+					entry->pp_pathname, strerror(errno));
+			continue;
+		}
+		path_len = strlen(path);
+		if (path_len < mnt_len &&
+		    !strncmp(path, mnt->me_dir, path_len) &&
+		    (mnt->me_dir[path_len] == '/' || path_len == 1)) {
+			/* Mountpoint completely inside project */
+			strcpy(path, mnt->me_dir);
+		} else if (path_len < mnt_len ||
+			   strncmp(path, mnt->me_dir, mnt_len) ||
+			   (path[mnt_len] && path[mnt_len] != '/')) {
+			/* Project not in that mountoint */
+			debug(FL_DEBUG | FL_VERBOSE, _("Skipping %s [%s]\n"),
+					entry->pp_pathname, mnt->me_dir);
+			continue;
+		}
+
+		debug(FL_DEBUG | FL_VERBOSE, _("Scanning %s [%s]\n"),
+				path, mnt->me_dir);
+
+		files_done = dirs_done = files_skipped = errors_found = 0;
+		current_project = entry->pp_prid;
+		failed |= nftw(path, check_project, 100, FTW_PHYS | FTW_MOUNT);
+		current_project = 0;
+
+		debug(FL_DEBUG | FL_VERBOSE, _("Checked %d directories "
+					"and %d files, %d special files skipped."
+					" %d errors found.\n"),
+				dirs_done, files_done, files_skipped, errors_found);
+
+		if (errors_found)
+			failed = -1;
+	}
+	endprpathent();
+
+	return failed;
+}
+
 /* Detect quota format from filename of present files */
 static int detect_filename_format(struct mount_entry *mnt, int type)
 {
@@ -1154,6 +1248,8 @@ static int check_all(void)
 			gcheck = 1;
 		else
 			gcheck = 0;
+		if (want_projects && me_hasquota(mnt, PRJQUOTA))
+			failed |= check_projects(mnt);
 		if (!ucheck && !gcheck)
 			continue;
 		if (cfmt == -1) {
