@@ -34,6 +34,7 @@
 #include "dqblk_v2.h"
 #include "dqblk_xfs.h"
 #include "quotaio_v2.h"
+#include "project.h"
 
 #define min(x,y) (((x) < (y)) ? (x) : (y))
 
@@ -137,15 +138,46 @@ gid_t group2gid(char *name, int flag, int *err)
 	return entry->gr_gid;
 }
 
+prid_t project2prid(char *name, int flag, int *err)
+{
+	struct fs_project *entry;
+	prid_t ret;
+	char *errch;
+
+	if (err)
+		*err = 0;
+	if (!flag) {
+		ret = strtoul(name, &errch, 0);
+		if (!*errch)
+			return ret;
+		/* Try to use name as a path */
+		if (!fgetproject(name, &ret))
+			return ret;
+	}
+	if (!(entry = getprnam(name))) {
+		if (!err)
+			die(1, _("project %s does not exist.\n"), name);
+		*err = -1;
+		return 0;
+	}
+	return entry->pr_prid;
+}
+
 /*
  *	Convert name to id
  */
 int name2id(char *name, int qtype, int flag, int *err)
 {
-	if (qtype == USRQUOTA)
+	switch (qtype) {
+	case USRQUOTA:
 		return user2uid(name, flag, err);
-	else
+	case GRPQUOTA:
 		return group2gid(name, flag, err);
+	case PRJQUOTA:
+		return project2prid(name, flag, err);
+	default:
+		die(1, _("wrong quota type: %d"), qtype);
+	}
 }
 
 /*
@@ -180,15 +212,33 @@ int gid2group(gid_t id, char *buf)
 	return 0;
 }
 
+int prid2project(prid_t id, char *buf)
+{
+	struct fs_project *entry;
+
+	if (!(entry = getprprid(id))) {
+		snprintf(buf, MAXNAMELEN, "#%u", (uint) id);
+		return 1;
+	} else
+		sstrncpy(buf, entry->pr_name, MAXNAMELEN);
+	return 0;
+}
+
 /*
  *	Convert id to user/groupname
  */
 int id2name(int id, int qtype, char *buf)
 {
-	if (qtype == USRQUOTA)
+	switch (qtype) {
+	case USRQUOTA:
 		return uid2user(id, buf);
-	else
+	case GRPQUOTA:
 		return gid2group(id, buf);
+	case PRJQUOTA:
+		return prid2project(id, buf);
+	default:
+		die(1, _("wrong quota type: %d"), qtype);
+	}
 }
 
 /*
@@ -1142,7 +1192,8 @@ alloc:
 		   we don't want to touch them */
 		qfmt[USRQUOTA] = hasquota(devname, mnt, USRQUOTA, flags);
 		qfmt[GRPQUOTA] = hasquota(devname, mnt, GRPQUOTA, flags);
-		if (qfmt[USRQUOTA] < 0 && qfmt[GRPQUOTA] < 0) {
+		qfmt[PRJQUOTA] = hasquota(devname, mnt, PRJQUOTA, flags);
+		if (qfmt[USRQUOTA] < 0 && qfmt[GRPQUOTA] < 0 && qfmt[PRJQUOTA] < 0) {
 			free((char *)devname);
 			continue;
 		}

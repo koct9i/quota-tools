@@ -94,7 +94,9 @@ libquota_a_SOURCES = \
 	quotasys.h \
 	mntopt.h \
 	pot.c \
-	pot.h
+	pot.h \
+	project.c \
+	project.h
 libquota_a_LIBADD = \
 	$(RPCLIBS)
 

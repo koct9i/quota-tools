@@ -8,9 +8,10 @@ typedef u_int32_t qid_t;	/* Type in which we store ids in memory */
 typedef int64_t qsize_t;	/* Type in which we store size limitations */
 #define QSIZE_MAX INT64_MAX /* Maximum value storable in qsize_t */
 
-#define MAXQUOTAS 2
+#define MAXQUOTAS 3
 #define USRQUOTA  0		/* element used for user quotas */
 #define GRPQUOTA  1		/* element used for group quotas */
+#define PRJQUOTA  2		/* element used for project quotas */
 
 /*
  * Definitions for the default names of the quotas files.
@@ -20,6 +21,7 @@ typedef int64_t qsize_t;	/* Type in which we store size limitations */
 #define INITQFNAMES { \
 	N_("user"),    /* USRQUOTA */ \
 	N_("group"),   /* GRPQUOTA */ \
+	N_("project"), /* PRJQUOTA */ \
 	N_("undefined"), \
 }
 
@@ -28,7 +30,8 @@ typedef int64_t qsize_t;	/* Type in which we store size limitations */
  */
 #define INITQMAGICS {\
 	0xd9c01f11,	/* USRQUOTA */\
-	0xd9c01927	/* GRPQUOTA */\
+	0xd9c01927,	/* GRPQUOTA */\
+	0xd9c03f14,	/* PRJQUOTA */\
 }
 
 /* Size of blocks in which are counted size limits in generic utility parts */

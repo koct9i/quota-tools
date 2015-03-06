@@ -11,6 +11,7 @@
 #include <inttypes.h>
 #include "mntopt.h"
 #include "quota.h"
+#include "project.h"
 
 #define MAXNAMELEN 64		/* Maximal length of user/group name */
 #define MAXTIMELEN 40		/* Maximal length of time string */
@@ -63,6 +64,9 @@ uid_t user2uid(char *, int flag, int *err);
 /* Convert groupname to gid */
 gid_t group2gid(char *, int flag, int *err);
 
+/* Convert project name or path to project id */
+prid_t project2prid(char *name, int flag, int *err);
+
 /* Convert user/groupname to id */
 int name2id(char *name, int qtype, int flag, int *err);
 
@@ -71,6 +75,9 @@ int uid2user(uid_t, char *);
 
 /* Convert gid to groupname */
 int gid2group(gid_t, char *);
+
+/* Convert project id to project name */
+int prid2project(prid_t id, char *buf);
 
 /* Convert id to user/group name */
 int id2name(int id, int qtype, char *buf);
