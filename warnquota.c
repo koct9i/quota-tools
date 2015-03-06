@@ -86,6 +86,7 @@
 #define FL_NOAUTOFS 4
 #define FL_SHORTNUMS 8
 #define FL_NODETAILS 16
+#define FL_PROJECT 32
 
 struct usage {
 	char *devicename;
@@ -464,7 +465,7 @@ static int mail_user(struct offenderlist *offender, struct configparams *config)
 		to = lookup_user(config, offender->offender_name);
 		if (!to)
 			return -1;
-	} else {
+	} else { /* Group and project quotas are handled together */
 		struct adminstable *admin;
 
 		if (!(admin = bsearch(offender->offender_name, adminstable, adminscnt, sizeof(struct adminstable), admin_name_cmp))) {
@@ -963,6 +964,18 @@ static void warn_quota(int fs_count, char **fs)
 			handles[i]->qh_ops->scan_dquots(handles[i], check_offence);
 		dispose_handle_list(handles);
 	}
+	if (flags & FL_PROJECT) {
+		if (get_groupadmins() < 0)
+			wc_exit(1);
+		handles = create_handle_list(fs_count, fs, PRJQUOTA, -1, IOI_READONLY | IOI_INITSCAN, MS_LOCALONLY | (flags & FL_NOAUTOFS ? MS_NO_AUTOFS : 0));
+		if (!maildev[0] || !strcasecmp(maildev, "any"))
+			maildev_handle = NULL;
+		else
+			maildev_handle = find_handle_dev(maildev, handles);
+		for (i = 0; handles[i]; i++)
+			handles[i]->qh_ops->scan_dquots(handles[i], check_offence);
+		dispose_handle_list(handles);
+	}
 	if (mail_to_offenders(&config) < 0)
 		wc_exit(1);
 }
@@ -970,9 +983,10 @@ static void warn_quota(int fs_count, char **fs)
 /* Print usage information */
 static void usage(void)
 {
-	errstr(_("Usage:\n  warnquota [-ugsid] [-F quotaformat] [-c configfile] [-q quotatabfile] [-a adminsfile] [filesystem...]\n\n\
+	errstr(_("Usage:\n  warnquota [-ugjsid] [-F quotaformat] [-c configfile] [-q quotatabfile] [-a adminsfile] [filesystem...]\n\n\
 -u, --user                      warn users\n\
 -g, --group                     warn groups\n\
+-j, --project                   warn projects\n\
 -s, --human-readable            send information in more human friendly units\n\
 -i, --no-autofs                 avoid autofs mountpoints\n\
 -d, --no-details                do not send quota information itself\n\
@@ -992,6 +1006,7 @@ static void parse_options(int argcnt, char **argstr)
 	struct option long_opts[] = {
 		{ "user", 0, NULL, 'u' },
 		{ "group", 0, NULL, 'g' },
+		{ "project", 0, NULL, 'j' },
 		{ "version", 0, NULL, 'V' },
 		{ "help", 0, NULL, 'h' },
 		{ "format", 1, NULL, 'F' },
@@ -1004,7 +1019,7 @@ static void parse_options(int argcnt, char **argstr)
 		{ NULL, 0, NULL, 0 }
 	};
  
-	while ((ret = getopt_long(argcnt, argstr, "ugVF:hc:q:a:isd", long_opts, NULL)) != -1) {
+	while ((ret = getopt_long(argcnt, argstr, "ugjVF:hc:q:a:isd", long_opts, NULL)) != -1) {
 		switch (ret) {
 		  case '?':
 		  case 'h':
@@ -1031,6 +1046,9 @@ static void parse_options(int argcnt, char **argstr)
 		  case 'g':
 			flags |= FL_GROUP;
 			break;
+		  case 'j':
+			flags |= FL_PROJECT;
+			break;
 		  case 'i':
 			flags |= FL_NOAUTOFS;
 			break;
@@ -1042,7 +1060,7 @@ static void parse_options(int argcnt, char **argstr)
 			break;
 		}
 	}
-	if (!(flags & FL_USER) && !(flags & FL_GROUP))
+	if (!(flags & (FL_USER | FL_GROUP | FL_PROJECT)))
 		flags |= FL_USER;
 }
  
