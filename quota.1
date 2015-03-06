@@ -47,6 +47,20 @@ quota \- display disk usage and limits
 .B -F
 .I format-name
 ] [
+.B -qvswi
+] [
+.BR -l \ |
+[
+.BR -QAm
+]]
+.B -j
+.IR project ...
+.br
+.B quota
+[
+.B -F
+.I format-name
+] [
 .B -qvswugQm
 ]
 .B -f
@@ -87,6 +101,10 @@ argument(s) restricts the display to the specified group(s).
 .TP
 .B -u, --user
 flag is equivalent to the default.
+.TP
+.B -j, --project
+Print project quotas. Mandatory argument(s) might contain numeric id, project
+name or path to any file or directory which belongs to the project.
 .TP
 .B -v, --verbose
 will display quotas on filesystems
@@ -192,10 +210,14 @@ quota file at the filesystem root (version 1 quota, non-XFS filesystems)
 .TP
 .B /etc/mtab
 default filesystems
+.TP
+.B /etc/projid
+the project name mapping file
 .PD
 .SH SEE ALSO
 .BR quotactl (2),
 .BR fstab (5),
+.BR projid (5),
 .BR edquota (8),
 .BR quotacheck (8),
 .BR quotaon (8),
