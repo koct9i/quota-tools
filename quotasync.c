@@ -15,6 +15,7 @@
 #define FL_USER 1		/* sync user quotas */
 #define FL_GROUP 2		/* sync group quotas */
 #define FL_ALL 4		/* sync quotas on all filesystems */
+#define FL_PROJECT 8		/* sync project quotas */
 
 static int flags, fmt = -1;
 static char **mnt;
@@ -25,8 +26,8 @@ static void usage(int status)
 {
 	printf(_(
 "%1$s: Utility for syncing quotas.\n"
-"Usage: %1$s [-ug] mount-point...\n"
-"   or: %1$s [-ug] -a\n"
+"Usage: %1$s [-ugj] mount-point...\n"
+"   or: %1$s [-ugj] -a\n"
 "   or: %1$s -h | -V\n"
 "\n"
 		), progname);
@@ -34,6 +35,7 @@ static void usage(int status)
 "Options:\n"
 "-u, --user     synchronize user quotas\n"
 "-g, --group    synchronize group quotas\n"
+"-j, --project  synchronize project quotas\n"
 "-a, --all      synchronize quotas for all mounted file systems\n"
 "-h, --help     display this help message and exit\n"
 "-V, --version  display version information and exit\n"
@@ -49,13 +51,14 @@ static void parse_options(int argcnt, char **argstr)
 	struct option long_opts[] = {
 		{ "user", 0, NULL, 'u' },
 		{ "group", 0, NULL, 'g' },
+		{ "project", 0, NULL, 'j' },
 		{ "all", 0, NULL, 'a' },
 		{ "version", 0, NULL, 'V' },
 		{ "help", 0, NULL, 'h' },
 		{ NULL, 0, NULL, 0 }
 	};
 
-	while ((ret = getopt_long(argcnt, argstr, "ahugV", long_opts, NULL)) != -1) {
+	while ((ret = getopt_long(argcnt, argstr, "ahugjV", long_opts, NULL)) != -1) {
 		switch (ret) {
 			case '?':
 				usage(EXIT_FAILURE);
@@ -69,6 +72,9 @@ static void parse_options(int argcnt, char **argstr)
 				break;
 			case 'g':
 				flags |= FL_GROUP;
+				break;
+			case 'j':
+				flags |= FL_PROJECT;
 				break;
 			case 'a':
 				flags |= FL_ALL;
@@ -85,7 +91,7 @@ static void parse_options(int argcnt, char **argstr)
 		mnt = argstr + optind;
 		mntcnt = argcnt - optind;
 	}
-	if (!(flags & (FL_USER | FL_GROUP)))
+	if (!(flags & (FL_USER | FL_GROUP | FL_PROJECT)))
 		flags |= FL_USER;
 }
 
@@ -141,6 +147,9 @@ int main(int argc, char **argv)
 			ret = EXIT_FAILURE;
 	if (flags & FL_GROUP)
 		if (syncquotas(GRPQUOTA))
+			ret = EXIT_FAILURE;
+	if (flags & FL_PROJECT)
+		if (syncquotas(PRJQUOTA))
 			ret = EXIT_FAILURE;
 	return ret;
 }
