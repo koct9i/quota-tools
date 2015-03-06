@@ -8,7 +8,8 @@ edquota \- edit user quotas
 .I protoname
 ] [
 .BR \-u \ |
-.B \-g
+.BR \-g \ |
+.B \-j
 ] [
 .B \-rm
 ] [
@@ -23,7 +24,8 @@ edquota \- edit user quotas
 .B edquota
 [
 .BR \-u \ |
-.B \-g
+.BR \-g \ |
+.B \-j
 ] [
 .B \-F
 .I format-name
@@ -36,7 +38,8 @@ edquota \- edit user quotas
 .B edquota
 [
 .BR \-u \ |
-.B \-g
+.BR \-g \ |
+.B \-j
 ] [
 .B \-F
 .I format-name
@@ -118,6 +121,9 @@ Edit the user quota. This is the default.
 .TP
 .B -g, --group
 Edit the group quota.
+.TP
+.B -j, --project
+Edit the project quota.
 .TP
 .B -p, --prototype=\f2protoname\f1
 Duplicate the quotas of the prototypical user
